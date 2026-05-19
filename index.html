@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plane Creator & Flyer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✈️ Plane Creator & Flyer</h1>
+            <p>Design your plane and watch it fly!</p>
+        </header>
+
+        <div class="game-wrapper">
+            <!-- Creator Panel -->
+            <div class="panel creator-panel">
+                <h2>Create Your Plane</h2>
+                
+                <div class="control-group">
+                    <label for="wingSize">Wing Size:</label>
+                    <input type="range" id="wingSize" min="20" max="80" value="40">
+                    <span id="wingSizeValue">40</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="fuselageLength">Fuselage Length:</label>
+                    <input type="range" id="fuselageLength" min="30" max="100" value="60">
+                    <span id="fuselageLengthValue">60</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="wingColor">Wing Color:</label>
+                    <input type="color" id="wingColor" value="#3498db">
+                </div>
+
+                <div class="control-group">
+                    <label for="fuselageColor">Fuselage Color:</label>
+                    <input type="color" id="fuselageColor" value="#e74c3c">
+                </div>
+
+                <div class="control-group">
+                    <label for="planeWeight">Weight (affects speed):</label>
+                    <select id="planeWeight">
+                        <option value="light">Light (Fast)</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="heavy">Heavy (Slow)</option>
+                    </select>
+                </div>
+
+                <div class="preview-section">
+                    <h3>Preview</h3>
+                    <svg id="planePreview" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Wings -->
+                        <ellipse id="previewWing" cx="100" cy="50" rx="40" ry="15" fill="#3498db"/>
+                        <!-- Fuselage -->
+                        <rect id="previewFuselage" x="70" y="45" width="60" height="10" fill="#e74c3c" rx="5"/>
+                        <!-- Cockpit -->
+                        <circle cx="130" cy="45" r="4" fill="#2c3e50"/>
+                        <!-- Tail -->
+                        <polygon id="previewTail" points="70,45 60,40 60,50" fill="#e74c3c"/>
+                    </svg>
+                </div>
+
+                <button id="flyBtn" class="btn btn-primary">🚀 Fly!</button>
+                <button id="resetBtn" class="btn btn-secondary">Reset</button>
+            </div>
+
+            <!-- Flight Canvas -->
+            <div class="panel flight-panel">
+                <h2>Flight Simulator</h2>
+                <canvas id="flightCanvas" width="500" height="400"></canvas>
+                <div class="flight-controls">
+                    <button id="upBtn" class="control-btn" title="Up">⬆️ Up</button>
+                    <button id="downBtn" class="control-btn" title="Down">⬇️ Down</button>
+                    <button id="restartBtn" class="control-btn" style="display:none;">Restart Flight</button>
+                </div>
+                <div id="stats" class="stats">
+                    <p>Alt: <span id="altitude">0</span>m | Speed: <span id="speed">0</span> | Angle: <span id="angle">0</span>°</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
