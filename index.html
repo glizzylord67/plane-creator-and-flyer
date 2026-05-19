@@ -3,327 +3,478 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aviasali Modular Builder</title>
+    <title>3D Aviasali Modular Builder</title>
     <style>
         body {
-            margin: 0; background: #1a1a24; color: white;
+            margin: 0; background: #0b0b10; color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden; display: flex; flex-direction: column; align-items: center;
+            overflow: hidden; display: flex; flex-direction: column;
         }
         #ui-bar {
-            width: 900px; margin-top: 10px; display: flex;
-            justify-content: space-between; align-items: center; background: #2a2a3a;
-            padding: 10px 20px; border-radius: 8px; box-sizing: border-box;
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 1000px; display: flex; justify-content: space-between;
+            align-items: center; background: rgba(42, 42, 58, 0.85);
+            padding: 12px 25px; border-radius: 12px; box-sizing: border-box;
+            z-index: 10; backdrop-filter: blur(5px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
         .btn {
-            padding: 10px 20px; font-weight: bold; cursor: pointer;
-            border: none; border-radius: 5px; color: white; background: #3a3aff;
+            padding: 12px 24px; font-weight: bold; cursor: pointer;
+            border: none; border-radius: 6px; color: white; background: #3a3aff;
+            font-size: 14px; transition: 0.2s;
         }
-        .btn:hover { background: #1a1aff; }
+        .btn:hover { background: #1a1aff; transform: translateY(-1px); }
         #fly-btn { background: #28a745; }
         #fly-btn:hover { background: #218838; }
-        #workshop-layout { display: flex; gap: 15px; margin-top: 10px; }
         #parts-picker {
-            width: 180px; background: #2a2a3a; border-radius: 8px;
+            position: absolute; left: 20px; top: 100px; width: 180px;
+            background: rgba(42, 42, 58, 0.85); border-radius: 12px;
             padding: 15px; display: flex; flex-direction: column; gap: 10px;
+            z-index: 10; backdrop-filter: blur(5px);
         }
         .part-item {
-            padding: 10px; background: #3a3a4a; border: 2px solid #555;
-            border-radius: 6px; cursor: pointer; text-align: center; font-size: 13px;
+            padding: 12px; background: #3a3a4a; border: 2px solid #555;
+            border-radius: 8px; cursor: pointer; text-align: center; font-size: 13px;
+            font-weight: bold; transition: 0.2s;
         }
-        .part-item.active { border-color: #00ffcc; background: #2e4a45; }
-        canvas {
-            border: 2px solid #3a3a4a; background: #111116;
-            border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        .part-item:hover { background: #4a4a5a; }
+        .part-item.active { border-color: #00ffcc; background: #1e3a35; }
+        #canvas-container { width: 100vw; height: 100vh; position: relative; }
+        #stats { font-size: 13px; color: #ccc; line-height: 1.5; }
+        #flight-hud {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            width: 300px; background: rgba(20, 20, 30, 0.8); padding: 15px;
+            border-radius: 10px; text-align: center; z-index: 10; display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
         }
-        #stats { font-size: 14px; color: #aaa; line-height: 1.4; }
+        .hud-bar { width: 100%; background: #333; height: 12px; border-radius: 6px; overflow: hidden; margin-top: 5px; }
+        .hud-fill { width: 100%; height: 100%; background: #2ed573; transition: width 0.1s; }
+        #instructions {
+            position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.5);
+            padding: 10px; border-radius: 6px; font-size: 12px; color: #aaa; pointer-events: none;
+        }
     </style>
+    <!-- Import Three.js Core library -->
+    <script src="https://cloudflare.com"></script>
 </head>
 <body>
 
     <div id="ui-bar">
         <div id="stats">
-            <strong>Aircraft Stats:</strong><br>
-            Weight: <span id="stat-weight">0</span>kg | Lift: <span id="stat-lift">0</span> | Thrust: <span id="stat-thrust">0</span>
+            <strong>Aircraft Specs:</strong><br>
+            Mass: <span id="stat-weight">0</span>kg | Lift: <span id="stat-lift">0</span> | Thrust: <span id="stat-thrust">0</span>
         </div>
         <div>
-            <button id="clear-btn" class="btn" style="background:#dc3545;">Reset Assembly</button>
+            <button id="clear-btn" class="btn" style="background:#dc3545; margin-right: 10px;">Reset Build</button>
             <button id="fly-btn" class="btn">🚀 Take Off</button>
         </div>
     </div>
 
-    <div id="workshop-layout">
-        <div id="parts-picker">
-            <h3 style="margin:0 0 10px 0; font-size:16px; text-align:center;">Parts Hangar</h3>
-            <div class="part-item active" data-type="cockpit">🔴 Cockpit (Core)</div>
-            <div class="part-item" data-type="wing">📐 Aerodynamic Wing</div>
-            <div class="part-item" data-type="engine">🔥 Jet Engine</div>
-            <div class="part-item" data-type="tank">🔋 Fuel Tank</div>
-            <div style="font-size:11px; color:#888; text-align:center; margin-top:10px;">
-                Select a component, then click the grid to install!
-            </div>
-        </div>
-        <canvas id="gameCanvas" width="720" height="480"></canvas>
+    <div id="parts-picker">
+        <h3 style="margin:0 0 10px 0; font-size:15px; text-align:center; color:#00ffcc;">3D Hangar</h3>
+        <div class="part-item active" data-type="cockpit">🔴 Cockpit (Core)</div>
+        <div class="part-item" data-type="fuselage">⚪ Fuselage Block</div>
+        <div class="part-item" data-type="wing">🔷 Aero Wing</div>
+        <div class="part-item" data-type="engine">🔥 Jet Engine</div>
+        <div class="part-item" data-type="tank">🟢 Fuel Tank</div>
     </div>
 
+    <div id="flight-hud">
+        <div id="hud-text" style="font-weight:bold; margin-bottom:5px;">Distance: 0m</div>
+        <div style="font-size:11px; color:#aaa;">FUEL GAUGE</div>
+        <div class="hud-bar"><div id="fuel-fill" class="hud-fill"></div></div>
+    </div>
+
+    <div id="instructions">
+        <b>Workshop Controls:</b> Left Click grid to attach. Right Click + Drag to rotate build view.<br>
+        <b>Flight Controls:</b> Hold <b>W / S</b> (or Up/Down) to Pitch. Hold <b>A / D</b> (or Left/Right) to Roll.
+    </div>
+
+    <div id="canvas-container"></div>
+
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-// Game Core States: 'WORKSHOP' or 'FLIGHT'
-let mode = 'WORKSHOP';
+// --- INITIAL SETUP & GLOBAL VARIABLES ---
+let scene, camera, renderer;
+let mode = 'WORKSHOP'; // 'WORKSHOP' or 'FLIGHT'
 let activePartType = 'cockpit';
+const GRID_SIZE = 1;
 
-// Grid Assembly Properties
-const GRID_SIZE = 30;
-const COLS = canvas.width / GRID_SIZE;
-const ROWS = canvas.height / GRID_SIZE;
-const CENTER_X = Math.floor(COLS / 2);
-const CENTER_Y = Math.floor(ROWS / 2);
-
-// Inventory Defs
+// Part Definitions for Physics and Geometry Rendering
 const PART_DEFS = {
-    cockpit: { color: "#ff4757", name: "Core", weight: 50, lift: 2, thrust: 5, fuel: 100 },
-    wing:    { color: "#1e90ff", name: "Wing", weight: 15, lift: 25, thrust: 0, fuel: 0 },
-    engine:  { color: "#ffa500", name: "Jet",  weight: 40, lift: 2,  thrust: 45, fuel: 0 },
-    tank:    { color: "#2ed573", name: "Fuel", weight: 60, lift: 0,  thrust: 0, fuel: 250 }
+    cockpit:  { color: 0xff4757, weight: 60, lift: 2,  thrust: 5,  fuel: 120, geom: 'box', scale: [1, 1, 1.2] },
+    fuselage: { color: 0xeeeeee, weight: 40, lift: 1,  thrust: 0,  fuel: 50,  geom: 'box', scale: [1, 1, 1] },
+    wing:     { color: 0x1e90ff, weight: 15, lift: 30, thrust: 0,  fuel: 0,   geom: 'wing', scale: [2, 0.1, 1] },
+    engine:   { color: 0xffa500, weight: 50, lift: 0,  thrust: 60, fuel: 0,   geom: 'cylinder', scale: [0.4, 1.2, 0.4] },
+    tank:     { color: 0x2ed573, weight: 55, lift: 1,  thrust: 0,  fuel: 300, geom: 'cylinder', scale: [0.5, 1, 0.5] }
 };
 
-// Player's Custom Plane Grid Map
-let gridMap = {};
-// Pre-install a baseline cockpit at grid center
-gridMap[`${CENTER_X},${CENTER_Y}`] = 'cockpit';
+// Plane Structure Data Structure
+let gridMap = {}; 
+gridMap['0,0,0'] = 'cockpit'; // Start with a core module at 0,0,0
 
-// Flight Engine Dynamics
+// Visual tracking lists
+let planeGroup = new THREE.Group();
+let workshopGrid;
+let elementsContainer = new THREE.Group();
+let terrainMesh;
+
+// Raycasting parameters for clicking blocks in 3D space
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let workshopPlane; // Invisible plane to intersect with mouse clicks
+
+// Flight Physics State Variables
 let flight = {
-    x: 100, y: 300, vx: 0, vy: 0, angle: 0,
-    totalWeight: 0, totalLift: 0, totalThrust: 0, maxFuel: 0, currentFuel: 0,
-    distance: 0, cargoCollected: 0
+    pos: new THREE.Vector3(0, 15, 0),
+    velocity: new THREE.Vector3(0, 0, 0),
+    rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
+    speed: 0, maxFuel: 0, currentFuel: 0,
+    weight: 0, lift: 0, thrust: 0, distance: 0
 };
 
-// Map Obstacles & Objectives
-let items = [];
-
-// --- UI AND INPUT HANDLERS ---
-document.querySelectorAll('.part-item').forEach(item => {
-    item.addEventListener('click', () => {
-        document.querySelectorAll('.part-item').forEach(p => p.classList.remove('active'));
-        item.classList.add('active');
-        activePartType = item.getAttribute('data-type');
-    });
-});
-
-canvas.addEventListener('click', (e) => {
-    if (mode !== 'WORKSHOP') return;
-    const rect = canvas.getBoundingClientRect();
-    const gX = Math.floor((e.clientX - rect.left) / GRID_SIZE);
-    const gY = Math.floor((e.clientY - rect.top) / GRID_SIZE);
-    
-    const key = `${gX},${gY}`;
-    if (gridMap[key]) {
-        // If clicking an existing component that isn't the core node, erase it
-        if (key !== `${CENTER_X},${CENTER_Y}`) delete gridMap[key];
-    } else {
-        // Block placing multiple core cockpits
-        if (activePartType === 'cockpit') return;
-        gridMap[key] = activePartType;
-    }
-    recalculateStats();
-});
-
-document.getElementById('clear-btn').addEventListener('click', () => {
-    if (mode !== 'WORKSHOP') return;
-    gridMap = {};
-    gridMap[`${CENTER_X},${CENTER_Y}`] = 'cockpit';
-    recalculateStats();
-});
-
-document.getElementById('fly-btn').addEventListener('click', () => {
-    if (mode === 'WORKSHOP') {
-        mode = 'FLIGHT';
-        document.getElementById('fly-btn').innerText = "🛠 Return to Hangar";
-        document.getElementById('fly-btn').style.background = "#ffa500";
-        initFlight();
-    } else {
-        mode = 'WORKSHOP';
-        document.getElementById('fly-btn').innerText = "🚀 Take Off";
-        document.getElementById('fly-btn').style.background = "#28a745";
-    }
-});
-
+// Input Handling Matrix
 const keys = {};
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
-window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-// --- PHYSICS & VALUE GENERATORS ---
+// Workshop Camera Angle Control Configuration
+let workshopRadius = 6, workshopTheta = 0, workshopPhi = Math.PI / 4;
+let isRightMouseDown = false;
+let previousMousePosition = { x: 0, y: 0 };
+
+init();
+animate();
+
+function init() {
+    const container = document.getElementById('canvas-container');
+    
+    // Create Scene & Camera Configurations
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x13131c);
+    
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    // Dynamic Lighting Layers
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 15);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // Setup Building Elements Environment
+    scene.add(planeGroup);
+    scene.add(elementsContainer);
+    
+    setupWorkshopEnvironment();
+    buildPlaneFromGrid();
+    recalculateStats();
+
+    // Event Registration Hooks
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+    window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+    
+    renderer.domElement.addEventListener('mousedown', onMouseDown);
+    renderer.domElement.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    
+    setupUI();
+}
+
+// --- BLUEPRINT VISUAL ENVIRONMENT BUILDING ---
+function setupWorkshopEnvironment() {
+    // 3D Grid Indicator Layout Line Helper
+    workshopGrid = new THREE.GridHelper(10, 10, 0x00ffcc, 0x444455);
+    workshopGrid.position.y = -0.5;
+    scene.add(workshopGrid);
+
+    // Invisible mathematical target layer for mouse pointer mapping 
+    const geo = new THREE.PlaneGeometry(100, 100);
+    geo.rotateX(-Math.PI / 2);
+    workshopPlane = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ visible: false }));
+    scene.add(workshopPlane);
+}
+
+// --- DYNAMIC GEOMETRY GENERATOR CORES ---
+function createPartMesh(type) {
+    const def = PART_DEFS[type];
+    let geo;
+    
+    if (def.geom === 'box') {
+        geo = new THREE.BoxGeometry(def.scale[0], def.scale[1], def.scale[2]);
+    } else if (def.geom === 'wing') {
+        geo = new THREE.BoxGeometry(def.scale[0], def.scale[1], def.scale[2]);
+    } else if (def.geom === 'cylinder') {
+        geo = new THREE.CylinderGeometry(def.scale[0], def.scale[2], def.scale[1], 8);
+        geo.rotateX(Math.PI / 2); // Align forward along length vectors
+    }
+    
+    const mat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.4, metalness: 0.2 });
+    return new THREE.Mesh(geo, mat);
+}
+
+function buildPlaneFromGrid() {
+    // Wipe out the group's current 3D parts to rebuild from scratch
+    while(planeGroup.children.length > 0){
+        planeGroup.remove(planeGroup.children[0]);
+    }
+
+    for (let key in gridMap) {
+        let [x, y, z] = key.split(',').map(Number);
+        let type = gridMap[key];
+        let mesh = createPartMesh(type);
+        mesh.position.set(x * GRID_SIZE, y * GRID_SIZE, z * GRID_SIZE);
+        planeGroup.add(mesh);
+    }
+}
+
+// --- STATS MATHEMATICAL BALANCING ENGINE ---
 function recalculateStats() {
     let w = 0, l = 0, t = 0, f = 0;
-    for (let cell in gridMap) {
-        let p = PART_DEFS[gridMap[cell]];
-        w += p.weight; l += p.lift; t += p.thrust; f += p.fuel;
+    for (let key in gridMap) {
+        let def = PART_DEFS[gridMap[key]];
+        w += def.weight; l += def.lift; t += def.thrust; f += def.fuel;
     }
     document.getElementById('stat-weight').innerText = w;
     document.getElementById('stat-lift').innerText = l;
     document.getElementById('stat-thrust').innerText = t;
-    
-    flight.totalWeight = w;
-    flight.totalLift = l;
-    flight.totalThrust = t;
-    flight.maxFuel = f;
+
+    flight.weight = w; flight.lift = l; flight.thrust = t; flight.maxFuel = f;
 }
 
-function initFlight() {
-    recalculateStats();
-    flight.x = 150; flight.y = 250;
-    flight.vx = 2; flight.vy = 0; flight.angle = 0;
-    flight.currentFuel = flight.maxFuel;
-    flight.distance = 0;
-    flight.cargoCollected = 0;
+// --- FLIGHT SIMULATION SCENERY ENVIRONMENT ---
+function setupFlightEnvironment() {
+    scene.background = new THREE.Color(0x6aa2dc);
+    if(workshopGrid) workshopGrid.visible = false;
 
-    // Generate random cargo payload loops and atmospheric hazards
-    items = [];
-    for(let i = 0; i < 20; i++) {
-        items.push({
-            x: 400 + i * 350 + Math.random() * 100,
-            y: 100 + Math.random() * 250,
-            type: Math.random() > 0.4 ? 'cargo' : 'hazard',
-            collected: false
+    // Create a simple green procedural runway / terrain mesh beneath flight paths
+    const terrainGeo = new THREE.PlaneGeometry(1000, 1000, 20, 20);
+    terrainGeo.rotateX(-Math.PI / 2);
+    const terrainMat = new THREE.MeshStandardMaterial({ color: 0x3b7a57, roughness: 0.9 });
+    terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+    terrainMesh.position.set(0, 0, -300);
+    scene.add(terrainMesh);
+
+    // Generate random 3D golden floating rings to navigate and collect
+    while(elementsContainer.children.length > 0) elementsContainer.remove(elementsContainer.children[0]);
+
+    for(let i=0; i<25; i++) {
+        const ringGeo = new THREE.TorusGeometry(3, 0.6, 8, 24);
+        const ringMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(Math.random() * 80 - 40, 10 + Math.random() * 40, -100 - (i * 80));
+        elementsContainer.add(ring);
+    }
+}
+
+// --- MOUSE CLICK INTERACTION CAPTURE (RAYCASTING) ---
+function onMouseDown(e) {
+    if (e.button === 2) { // Right Click for Camera rotation
+        isRightMouseDown = true;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+        e.preventDefault();
+        return;
+    }
+    if (mode !== 'WORKSHOP') return;
+
+    // Left Click logic maps 2D viewport coordinates onto 3D building layers
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(workshopPlane);
+
+    if (intersects.length > 0) {
+        let pt = intersects[0].point;
+        // Map decimal coordinate spaces onto crisp structural grid intervals
+        let gx = Math.round(pt.x / GRID_SIZE);
+        let gy = Math.max(0, Math.round(pt.y / GRID_SIZE)); // Ensure items stay above floor lines
+        let gz = Math.round(pt.z / GRID_SIZE);
+        
+        let key = `${gx},${gy},${gz}`;
+
+        if (gridMap[key]) {
+            if (key !== '0,0,0') { // Do not erase core pilot hull node
+                delete gridMap[key];
+            }
+        } else {
+            if (activePartType === 'cockpit') return; // Enforce single engine pilot core constraints
+            gridMap[key] = activePartType;
+        }
+        buildPlaneFromGrid();
+        recalculateStats();
+    }
+}
+
+function onMouseMove(e) {
+    if (isRightMouseDown) { // Perform camera rotation if right-click dragging
+        const deltaX = e.clientX - previousMousePosition.x;
+        const deltaY = e.clientY - previousMousePosition.y;
+
+        workshopTheta -= deltaX * 0.01;
+        workshopPhi += deltaY * 0.01;
+        // Clamp vertical view bounds to prevent flipping upside down
+        workshopPhi = Math.max(0.1, Math.min(Math.PI / 2 - 0.05, workshopPhi));
+
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+    }
+}
+
+function onMouseUp(e) { if(e.button === 2) isRightMouseDown = false; }
+
+// --- CORE GAME STATE UI CONTROLS ---
+function setupUI() {
+    document.querySelectorAll('.part-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.part-item').forEach(p => p.classList.remove('active'));
+            item.classList.add('active');
+            activePartType = item.getAttribute('data-type');
         });
-    }
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+        if (mode !== 'WORKSHOP') return;
+        gridMap = {}; gridMap['0,0,0'] = 'cockpit';
+        buildPlaneFromGrid(); recalculateStats();
+    });
+
+    document.getElementById('fly-btn').addEventListener('click', () => {
+        if (mode === 'WORKSHOP') {
+            mode = 'FLIGHT';
+            document.getElementById('fly-btn').innerText = "🛠 Return to Hangar";
+            document.getElementById('fly-btn').style.background = "#ffa500";
+            document.getElementById('flight-hud').style.display = 'block';
+            
+            // Set initial variables for take-off
+            flight.pos.set(0, 12, 0);
+            flight.velocity.set(0, 0, -4);
+            flight.rotation.set(0, 0, 0);
+            flight.currentFuel = flight.maxFuel;
+            flight.distance = 0;
+            
+            setupFlightEnvironment();
+        } else {
+            mode = 'WORKSHOP';
+            document.getElementById('fly-btn').innerText = "🚀 Take Off";
+            document.getElementById('fly-btn').style.background = "#28a745";
+            document.getElementById('flight-hud').style.display = 'none';
+            
+            scene.background = new THREE.Color(0x13131c);
+            if(workshopGrid) workshopGrid.visible = true;
+            if(terrainMesh) scene.remove(terrainMesh);
+            
+            // Reset coordinates to builder default alignments
+            planeGroup.position.set(0,0,0);
+            planeGroup.rotation.set(0,0,0);
+        }
+    });
+    
+    // Intercept standard contextual right-clicks inside design boxes
+    renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 }
 
-// --- RENDERING ROUTINES ---
-function drawGridPart(type, x, y, size) {
-    ctx.fillStyle = PART_DEFS[type].color;
-    ctx.fillRect(x, y, size - 2, size - 2);
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, size - 2, size - 2);
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function renderPlane() {
-    // Determine bounds to center custom craft frame
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (let key in gridMap) {
-        let [cx, cy] = key.split(',').map(Number);
-        if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
-        if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
-    }
-    let offsetX = ((maxX - minX + 1) * GRID_SIZE) / 2;
-    let offsetY = ((maxY - minY + 1) * GRID_SIZE) / 2;
-
-    for (let key in gridMap) {
-        let [cx, cy] = key.split(',').map(Number);
-        let drawX = (cx - minX) * GRID_SIZE - offsetX;
-        let drawY = (cy - minY) * GRID_SIZE - offsetY;
-        drawGridPart(gridMap[key], drawX, drawY, GRID_SIZE);
-    }
-}
-
-// --- MAIN CORE MODULE LOOP ---
-function step() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+// --- ENGINE REFRESH ANIMATION LOOPS ---
+function animate() {
+    requestAnimationFrame(animate);
 
     if (mode === 'WORKSHOP') {
-        // Render Editor Placement Blueprint Grid Maps
-        ctx.strokeStyle = "#252535"; ctx.lineWidth = 1;
-        for (let i = 0; i <= COLS; i++) { ctx.beginPath(); ctx.moveTo(i * GRID_SIZE, 0); ctx.lineTo(i * GRID_SIZE, canvas.height); ctx.stroke(); }
-        for (let j = 0; j <= ROWS; j++) { ctx.beginPath(); ctx.moveTo(0, j * GRID_SIZE); ctx.lineTo(canvas.width, j * GRID_SIZE); ctx.stroke(); }
-
-        // Render current modular build
-        for (let key in gridMap) {
-            let [gx, gy] = key.split(',').map(Number);
-            drawGridPart(gridMap[key], gx * GRID_SIZE, gy * GRID_SIZE, GRID_SIZE);
-        }
-        
-        ctx.fillStyle = "rgba(255,255,255,0.7)";
-        ctx.font = "14px sans-serif";
-        ctx.fillText("🔧 WORKSHOP: Click to attach/detach components", 20, 30);
+        // Orbit builder camera view based on workshopTheta and workshopPhi angles
+        camera.position.x = workshopRadius * Math.sin(workshopTheta) * Math.cos(workshopPhi);
+        camera.position.y = workshopRadius * Math.sin(workshopPhi);
+        camera.position.z = workshopRadius * Math.cos(workshopTheta) * Math.cos(workshopPhi);
+        camera.lookAt(0, 0, 0);
 
     } else if (mode === 'FLIGHT') {
-        // Aerodynamic Flight Engine Calculations
-        if (keys['w'] || keys['arrowup']) flight.angle -= 0.04;
-        if (keys['s'] || keys['arrowdown']) flight.angle += 0.04;
+        // 3D Aerodynamic Physics Framework Calculations
+        
+        // Handle keyboard inputs to apply pitch and roll adjustments
+        if (keys['w'] || keys['arrowup'])   flight.rotation.x -= 0.03;   // Pitch Down
+        if (keys['s'] || keys['arrowdown']) flight.rotation.x += 0.03;   // Pitch Up
+        if (keys['a'] || keys['arrowleft'])  flight.rotation.z += 0.04;   // Roll Left
+        if (keys['d'] || keys['arrowright']) flight.rotation.z -= 0.04;   // Roll Right
 
-        // Thrust vector translation with functional fuel deductions
+        // Gently auto-stabilize level vectors if hands are off controls
+        flight.rotation.z *= 0.95;
+
+        // Thrust vector acceleration logic based on fuel reserves
         if (flight.currentFuel > 0) {
-            let force = flight.totalThrust * 0.003;
-            flight.vx += Math.cos(flight.angle) * force;
-            flight.vy += Math.sin(flight.angle) * force;
-            flight.currentFuel -= 0.2 + (flight.totalThrust * 0.005);
+            let enginePower = flight.thrust * 0.0007;
+            // Push forward along your plane's local forward facing orientation vector
+            let forwardVector = new THREE.Vector3(0, 0, -1).applyEuler(flight.rotation);
+            flight.velocity.addScaledVector(forwardVector, enginePower);
+            
+            // Consume active fuel
+            flight.currentFuel -= 0.1 + (flight.thrust * 0.001);
         }
 
-        // Lift & Weight Balancing Equations
-        let speed = Math.sqrt(flight.vx * flight.vx + flight.vy * flight.vy);
-        let liftAmount = speed * (flight.totalLift * 0.01) * Math.cos(flight.angle);
-        flight.vy -= liftAmount * 0.05;
-        flight.vy += (flight.totalWeight * 0.0015); // Gravity impact
+        // Apply Lift mechanics based on speed and wing configuration
+        flight.speed = flight.velocity.length();
+        let liftAmount = flight.speed * (flight.lift * 0.0005);
+        let upwardVector = new THREE.Vector3(0, 1, 0).applyEuler(flight.rotation);
+        flight.velocity.addScaledVector(upwardVector, liftAmount);
 
-        // Apply environmental drag dampening
-        flight.vx *= 0.985; flight.vy *= 0.985;
+        // Apply gravity dragging down relative to mass weight stats
+        flight.velocity.y -= (flight.weight * 0.0002);
 
-        // Translate coordinate positions
-        flight.y += flight.vy;
-        flight.distance += flight.vx * 0.1;
+        // Apply air drag resistance dampening
+        flight.velocity.multiplyScalar(0.99);
 
-        // Canvas Boundary constraints
-        if (flight.y > canvas.height - 40) { flight.y = canvas.height - 40; flight.vy = 0; flight.vx *= 0.95; }
-        if (flight.y < 20) { flight.y = 20; flight.vy = 0; }
+        // Update spatial coordinate coordinates
+        flight.pos.add(flight.velocity);
+        flight.distance += Math.abs(flight.velocity.z) * 0.1;
 
-        // Draw Infinite Background Floor & Sky Indicators
-        ctx.fillStyle = "#1e1e2a"; ctx.fillRect(0, canvas.height - 30, canvas.width, 30);
-        
-        // Dynamic HUD HUD Displays
-        ctx.fillStyle = "#fff"; ctx.font = "bold 13px sans-serif";
-        ctx.fillText(`Distance: ${Math.floor(flight.distance)}m`, 20, 35);
-        ctx.fillText(`Cargo Picked Up: ${flight.cargoCollected}`, 20, 55);
-        
-        // Draw Core Fuel Indicator Gauge 
-        let fuelPct = Math.max(0, flight.currentFuel / flight.maxFuel);
-        ctx.fillStyle = "#333"; ctx.fillRect(20, 70, 150, 12);
-        ctx.fillStyle = fuelPct > 0.3 ? "#2ed573" : "#ff4757";
-        ctx.fillRect(20, 70, 150 * fuelPct, 12);
-        ctx.fillStyle = "#fff"; ctx.font = "10px sans-serif";
-        ctx.fillText("FUEL", 25, 80);
+        // Ground collision constraint parameters
+        if (flight.pos.y < 1.5) {
+            flight.pos.y = 1.5;
+            flight.velocity.y = 0;
+            flight.velocity.multiplyScalar(0.95); // Ground Friction dampening
+            flight.rotation.x *= 0.8;
+        }
 
-        // Process Interactive Map Objects
-        items.forEach(item => {
-            let relativeX = item.x - (flight.distance * 10);
-            if (relativeX > -50 && relativeX < canvas.width + 50 && !item.collected) {
-                ctx.fillStyle = item.type === 'cargo' ? "#eccc68" : "#ff6b81";
-                ctx.beginPath();
-                ctx.arc(relativeX, item.y, item.type === 'cargo' ? 10 : 12, 0, Math.PI * 2);
-                ctx.fill();
+        // Apply calculated motion metrics back onto the plane visual meshes
+        planeGroup.position.copy(flight.pos);
+        planeGroup.rotation.copy(flight.rotation);
 
-                // Simple collision detection bounds
-                let distToPlane = Math.hypot(relativeX - flight.x, item.y - flight.y);
-                if (distToPlane < 25) {
-                    item.collected = true;
-                    if (item.type === 'cargo') {
-                        flight.cargoCollected++;
-                    } else {
-                        // Crash impact penality adjustments
-                        flight.vx *= 0.4;
-                        flight.vy += 4;
-                    }
-                }
+        // Chase Camera setup: smoothly follow behind and slightly above the aircraft
+        let cameraOffset = new THREE.Vector3(0, 3, 10).applyEuler(flight.rotation);
+        camera.position.copy(flight.pos).add(cameraOffset);
+        camera.lookAt(flight.pos.clone().add(new THREE.Vector3(0, 0, -5).applyEuler(flight.rotation)));
+
+        // Animate floating gold targets and track player collection distances
+        elementsContainer.children.forEach(ring => {
+            ring.rotation.y += 0.02;
+            let dist = flight.pos.distanceTo(ring.position);
+            if(dist < 5.0) {
+                // Instantly teleport collected loops far down the track to simulate endless progression loops
+                ring.position.z -= 600; 
+                ring.position.x = Math.random() * 80 - 40;
+                ring.position.y = 10 + Math.random() * 40;
             }
         });
 
-        // Save layout context, render custom plane grid relative to direction vectors
-        ctx.save();
-        ctx.translate(flight.x, flight.y);
-        ctx.rotate(flight.angle);
-        renderPlane();
-        ctx.restore();
+        // Loop infinite environment tiles forward under the flight track
+        if (terrainMesh) terrainMesh.position.z = flight.pos.z - 200;
+
+        // Update active HUD elements
+        document.getElementById('hud-text').innerText = `Distance: ${Math.floor(flight.distance)}m`;
+        let fuelPct = Math.max(0, flight.currentFuel / flight.maxFuel);
+        document.getElementById('fuel-fill').style.width = (fuelPct * 100) + '%';
+        document.getElementById('fuel-fill').style.background = fuelPct > 0.3 ? '#2ed573' : '#ff4757';
     }
 
-    requestAnimationFrame(step);
+    renderer.render(scene, camera);
 }
-
-// Boot setup script configurations
-recalculateStats();
-step();
 </script>
 
 </body>
