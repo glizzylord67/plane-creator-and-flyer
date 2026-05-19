@@ -3,86 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plane Creator & Flyer</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Plane Maker & Flyer</title>
+    <style>
+        body {
+            margin: 0;
+            background: #222;
+            color: white;
+            font-family: sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #ui {
+            margin: 10px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+        }
+        button:hover { background: #0056b3; }
+        #instructions {
+            font-size: 14px;
+            color: #ccc;
+        }
+        canvas {
+            border: 2px solid #444;
+            background: #111;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>✈️ Plane Creator & Flyer</h1>
-            <p>Design your plane and watch it fly!</p>
-        </header>
 
-        <div class="game-wrapper">
-            <!-- Creator Panel -->
-            <div class="panel creator-panel">
-                <h2>Create Your Plane</h2>
-                
-                <div class="control-group">
-                    <label for="wingSize">Wing Size:</label>
-                    <input type="range" id="wingSize" min="20" max="80" value="40">
-                    <span id="wingSizeValue">40</span>
-                </div>
-
-                <div class="control-group">
-                    <label for="fuselageLength">Fuselage Length:</label>
-                    <input type="range" id="fuselageLength" min="30" max="100" value="60">
-                    <span id="fuselageLengthValue">60</span>
-                </div>
-
-                <div class="control-group">
-                    <label for="wingColor">Wing Color:</label>
-                    <input type="color" id="wingColor" value="#3498db">
-                </div>
-
-                <div class="control-group">
-                    <label for="fuselageColor">Fuselage Color:</label>
-                    <input type="color" id="fuselageColor" value="#e74c3c">
-                </div>
-
-                <div class="control-group">
-                    <label for="planeWeight">Weight (affects speed):</label>
-                    <select id="planeWeight">
-                        <option value="light">Light (Fast)</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="heavy">Heavy (Slow)</option>
-                    </select>
-                </div>
-
-                <div class="preview-section">
-                    <h3>Preview</h3>
-                    <svg id="planePreview" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Wings -->
-                        <ellipse id="previewWing" cx="100" cy="50" rx="40" ry="15" fill="#3498db"/>
-                        <!-- Fuselage -->
-                        <rect id="previewFuselage" x="70" y="45" width="60" height="10" fill="#e74c3c" rx="5"/>
-                        <!-- Cockpit -->
-                        <circle cx="130" cy="45" r="4" fill="#2c3e50"/>
-                        <!-- Tail -->
-                        <polygon id="previewTail" points="70,45 60,40 60,50" fill="#e74c3c"/>
-                    </svg>
-                </div>
-
-                <button id="flyBtn" class="btn btn-primary">🚀 Fly!</button>
-                <button id="resetBtn" class="btn btn-secondary">Reset</button>
-            </div>
-
-            <!-- Flight Canvas -->
-            <div class="panel flight-panel">
-                <h2>Flight Simulator</h2>
-                <canvas id="flightCanvas" width="500" height="400"></canvas>
-                <div class="flight-controls">
-                    <button id="upBtn" class="control-btn" title="Up">⬆️ Up</button>
-                    <button id="downBtn" class="control-btn" title="Down">⬇️ Down</button>
-                    <button id="restartBtn" class="control-btn" style="display:none;">Restart Flight</button>
-                </div>
-                <div id="stats" class="stats">
-                    <p>Alt: <span id="altitude">0</span>m | Speed: <span id="speed">0</span> | Angle: <span id="angle">0</span>°</p>
-                </div>
-            </div>
-        </div>
+    <div id="ui">
+        <button id="modeBtn">Switch to Flight Mode</button>
+        <button id="clearBtn">Clear Design</button>
+        <span id="instructions">Design Mode: Click inside the box to draw your plane outline!</span>
     </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
 
-    <script src="script.js"></script>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const modeBtn = document.getElementById("modeBtn");
+const clearBtn = document.getElementById("clearBtn");
+const instructions = document.getElementById("instructions");
+
+// Game States: 'DESIGN' or 'FLIGHT'
+let gameState = 'DESIGN';
+
+// Plane Structure
+// Default starter triangle shape relative to center (0,0)
+let points = [
+    {x: 40, y: 0},    // Nose
+    {x: -30, y: -20}, // Top wing
+    {x: -15, y: 0},   // Tail inner
+    {x: -30, y: 20}   // Bottom wing
+];
+
+// Physics variables for Flight Mode
+let flight = {
+    x: 100,
+    y: 250,
+    vx: 5,
+    vy: 0,
+    angle: 0,
+    thrust: 0.15,
+    gravity: 0.08,
+    drag: 0.99,
+    liftCoefficient: 0.003
+};
+
+// --- DESIGN MODE LOGIC ---
+canvas.addEventListener("click", (e) => {
+    if (gameState !== 'DESIGN') return;
+    
+    // Get click position relative to canvas center
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    // Convert to relative coordinates from canvas center
+    const relX = clickX - canvas.width / 2;
+    const relY = clickY - canvas.height / 2;
+    
+    points.push({x: relX, y: relY});
+});
+
+clearBtn.addEventListener("click", () => {
+    if (gameState === 'DESIGN') {
+        points = [];
+    }
+});
+
+// --- MODE SWITCHING ---
+modeBtn.addEventListener("click", () => {
+    if (gameState === 'DESIGN') {
+        if (points.length < 3) {
+            alert("Please click to add at least 3 points to build a plane shape!");
+            return;
+        }
+        // Switch to Flight
+        gameState = 'FLIGHT';
+        modeBtn.innerText = "Switch to Design Mode";
+        instructions.innerHTML = "Flight Mode: Hold <b>UP / W</b> to pitch up, <b>DOWN / S</b> to pitch down. Press <b>SPACE</b> for Boost.";
+        
+        // Reset flight positions
+        flight.x = 100;
+        flight.y = canvas.height / 2;
+        flight.vx = 4;
+        flight.vy = 0;
+        flight.angle = 0;
+    } else {
+        // Switch to Design
+        gameState = 'DESIGN';
+        modeBtn.innerText = "Switch to Flight Mode";
+        instructions.innerHTML = "Design Mode: Click inside the box to draw your plane outline!";
+    }
+});
+
+// --- INPUT HANDLING ---
+const keys = {};
+window.addEventListener("keydown", (e) => { keys[e.key.toLowerCase()] = true; });
+window.addEventListener("keyup", (e) => { keys[e.key.toLowerCase()] = false; });
+
+// --- GAME LOOP ---
+function update() {
+    // 1. Logic Update
+    if (gameState === 'FLIGHT') {
+        // Handle Controls
+        if (keys['arrowup'] || keys['w']) flight.angle -= 0.04;
+        if (keys['arrowdown'] || keys['s']) flight.angle += 0.04;
+        
+        // Default engine thrust + space booster thrust
+        let currentThrust = flight.thrust;
+        if (keys[' ']) currentThrust *= 2.5; 
+
+        // Apply Thrust
+        flight.vx += Math.cos(flight.angle) * currentThrust;
+        flight.vy += Math.sin(flight.angle) * currentThrust;
+
+        // Simple Aerodynamics (Lift based on forward speed and wing profile size)
+        // Bigger custom shapes slightly scale up structural drag/lift
+        const wingSpan = points.length * 0.3; 
+        const forwardSpeed = Math.sqrt(flight.vx * flight.vx + flight.vy * flight.vy);
+        const attackAngle = flight.angle - Math.atan2(flight.vy, flight.vx);
+        
+        // Lift forces upward relative to your velocity and wing tilt
+        let lift = forwardSpeed * forwardSpeed * flight.liftCoefficient * Math.sin(attackAngle);
+        flight.vx -= Math.sin(flight.angle) * lift;
+        flight.vy -= Math.cos(flight.angle) * lift;
+
+        // Apply Environmental Forces
+        flight.vy += flight.gravity;
+        flight.vx *= flight.drag;
+        flight.vy *= flight.drag;
+
+        // Move Plane
+        flight.x += flight.vx;
+        flight.y += flight.vy;
+
+        // Screen wrap-around & floor boundary
+        if (flight.x > canvas.width + 50) flight.x = -50;
+        if (flight.x < -50) flight.x = canvas.width + 50;
+        
+        // Crash or Land on floor
+        if (flight.y > canvas.height - 20) {
+            flight.y = canvas.height - 20;
+            flight.vy = 0;
+            flight.vx *= 0.9; // Friction
+        }
+        if (flight.y < 0) {
+            flight.y = 0;
+            flight.vy = 0;
+        }
+    }
+
+    // 2. Rendering
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (gameState === 'DESIGN') {
+        // Draw Blueprint Grid
+        ctx.strokeStyle = "#222";
+        ctx.lineWidth = 1;
+        for(let i=0; i<canvas.width; i+=20) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+        }
+        for(let j=0; j<canvas.height; j+=20) {
+            ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+        }
+
+        // Draw Center Anchor Point
+        ctx.fillStyle = "red";
+        ctx.beginPath();
+        ctx.arc(canvas.width/2, canvas.height/2, 6, 0, Math.PI*2);
+        ctx.fill();
+
+        // Render custom plane relative to center anchor
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        drawPlane("#00ffcc", "rgba(0, 255, 200, 0.2)");
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset matrix
+
+    } else if (gameState === 'FLIGHT') {
+        // Draw sky horizon background line
+        ctx.strokeStyle = "#333";
+        ctx.beginPath(); ctx.moveTo(0, canvas.height-20); ctx.lineTo(canvas.width, canvas.height-20); ctx.stroke();
+
+        // Render moving custom plane
+        ctx.translate(flight.x, flight.y);
+        ctx.rotate(flight.angle);
+        
+        // Draw engine fire trail if thrusting/moving forward
+        if(keys[' ']) {
+            ctx.fillStyle = "orange";
+            ctx.beginPath();
+            ctx.moveTo(-35, 0); ctx.lineTo(-65, -10); ctx.lineTo(-50, 0); ctx.lineTo(-65, 10);
+            ctx.fill();
+        }
+
+        drawPlane("#ff007f", "rgba(255, 0, 127, 0.3)");
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset matrix
+    }
+
+    requestAnimationFrame(update);
+}
+
+// Helper to draw plane shape lines
+function drawPlane(strokeColor, fillColor) {
+    if (points.length === 0) return;
+    
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.closePath();
+    
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Draw little handles on dots in design mode
+    if(gameState === 'DESIGN') {
+        ctx.fillStyle = "#fff";
+        for (let i = 0; i < points.length; i++) {
+            ctx.beginPath();
+            ctx.arc(points[i].x, points[i].y, 4, 0, Math.PI*2);
+            ctx.fill();
+        }
+    }
+}
+
+// Start game
+update();
+</script>
+
 </body>
 </html>
